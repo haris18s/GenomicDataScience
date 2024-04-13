@@ -1,0 +1,225 @@
+---
+title: "Project_Week1_Statistics-GenomicDataScience"
+author: "Haris Spyridis"
+date: "2024-03-24"
+output:
+  html_document: default
+  pdf_document: default
+  fig_width: 15
+---
+
+```{r setup, eval=TRUE}
+knitr::opts_chunk$set(cache=TRUE) 
+```
+
+```{r }
+x = rnorm(10)
+plot(x,pch=19,col="dodgerblue")
+```
+
+
+```{r }
+y = rbinom(20,size=1,prob=0.5)
+table(y)
+
+?SummarizedExperiment
+```
+
+
+
+
+```{r}
+library(Biobase)
+library(GenomicRanges)
+library(SummarizedExperiment)
+
+data(sample.ExpressionSet, package = "Biobase")
+se = makeSummarizedExperimentFromExpressionSet(sample.ExpressionSet)
+colData(se)
+rowRanges(se)
+??summarizedExperiment
+```
+
+
+#Question 5:
+'''Just considering the phenotype data what are some reasons that the Bottomly data set is likely a better experimental design than the Bodymap data? Imagine the question of interest in the Bottomly data is to compare strains and in the Bodymap data it is to compare tissues.'''
+
+``` {r }
+con =url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/bottomly_eset.RData")
+load(file=con)
+close(con)
+bot = bottomly.eset
+pdata_bot=pData(bot)
+head(pdata_bot)
+
+con = url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/bodymap_eset.RData")
+load(file=con)
+close(con)
+bm = bodymap.eset
+pdata_bm=pData(bm)
+head(pdata_bm)
+
+```
+
+
+
+#Question 6
+"What are some reasons why this plot is not useful for comparing the number of technical replicates by tissue (you may need to install the plotrix package)."
+``` {r}
+library(plotrix)
+
+con =url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/bodymap_eset.RData")
+load(file=con)
+close(con)
+bm = bodymap.eset
+pdata_bm=pData(bm)
+
+pie3D(pdata_bm$num.tech.reps,labels=pdata_bm$tissue.type)
+edata = exprs(bm)
+
+#Answer: The "mixture" category is split across multiple wedges. 
+```
+
+#Question 7:
+```{r}
+con =url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/bodymap_eset.RData")
+load(file=con)
+close(con)
+bm = bodymap.eset
+edata = exprs(bm)
+
+row_sums = rowSums(edata)
+edata = edata[order(-row_sums),]
+index = 1:500
+heatmap(edata[index,],Rowv=NA,Colv=NA)
+
+```
+
+
+
+
+#Question 8:
+Make an MA-plot of the first sample versus the second sample using the log2 transform (hint: you may have to add 1 first) and the rlogrlog transform from the DESeq2 package. How are the two MA-plots different? Which kind of genes appear most different in each plot?
+``` {r} 
+library(DESeq2)
+
+con =url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/bodymap_eset.RData")
+load(file=con)
+close(con)
+bm = bodymap.eset
+pdata = pData(bm)
+edata = exprs(bm)
+  
+#MA plot with log2 transformation
+edata_log = log2(edata+1)
+mm_log = edata_log[,1] - edata_log[,2]
+aa_log = edata_log[,1] + edata_log[,2]
+
+plot(aa_log,mm_log)
+
+#first perform rlog transformation for the whole dataset
+edata_rlog = rlog(edata+1)
+
+mmrlog = edata_rlog[,1] - edata_rlog[,2]
+aarlog= edata_rlog[,1] + edata_rlog[,2]
+plot(aarlog, mmrlog)
+
+```
+
+
+
+
+Question 9 : Load the Montgomery and Pickrell eSet
+```{r}
+
+con =url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/montpick_eset.RData")
+load(file=con)
+close(con)
+mp = montpick.eset
+pdata=pData(mp)
+edata=as.data.frame(exprs(mp))
+fdata = fData(mp)
+
+
+
+```
+Cluster the data in three ways:
+
+  1)With no changes to the data
+
+  2)After filtering all genes with rowMeans  less than 100
+
+  3)After taking the log2log2 transform of the data without filtering
+
+#clust with no changes
+``` {r fig.width=10, fig.height=6}
+library(rafalib)
+dist1 = dist(t(edata))
+hclust1 = hclust(dist1)
+col<-c(rep(2,60), rep(3, 69)) # 2 and 3 indicate red nd green
+myplclust(hclust = hclust1, labels = hclust1$labels, lab.col = col)
+
+```
+
+#after filtering all genes with rowmeans<100
+```{r fig.width=10, fig.height=6}
+filter_means = edata[rowMeans(edata)<100, ]
+dist2 = dist(t(filter_means))
+hclust2 = hclust(dist2)
+myplclust(hclust = hclust2, labels = hclust2$labels, lab.col = col)
+
+
+```
+
+#with log2 transformation without filtering
+```{r fig.width=10, fig.height=6}
+filter_log = log2(edata+1)
+dist3 = dist(t(filter_log))
+hclust3 = hclust(dist3)
+myplclust(hclust = hclust3, labels = hclust3$labels, lab.col = col)
+
+
+```
+
+
+
+
+
+
+#Question 10
+```{r}
+con =url("http://bowtie-bio.sourceforge.net/recount/ExpressionSets/montpick_eset.RData")
+load(file=con)
+close(con)
+mp = montpick.eset
+pdata=pData(mp)
+edata= as.data.frame(exprs(mp))
+fdata = fData(mp)
+dist4 = dist(t(filter_log))
+
+
+filter_log = log2(edata+1)
+
+kmeans_1 = kmeans(t(filter_log), centers = 2)
+#This is particularly useful when you want to ensure that your results are reproducible,
+set.seed(12345)
+matplot(t(kmeans1$centers), col=1:2, type="l", lwd = 2)
+kmeans_labels = kmeans_1$cluster
+table(kmeans_labels)
+
+
+#cut tree but first we need hierarchicalc lust
+dist4 = dist(t(filter_log))
+hclust4 = hclust(dist4)
+hc = cutree(hclust4, k=2)
+table(cluster_labels, kmeans_labels)
+plot(hc)
+
+dend = color_labels(hclust4, 2,1:2)
+plot(dend)
+
+?cutree
+
+
+
+```
